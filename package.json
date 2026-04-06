@@ -1,0 +1,8 @@
+{
+  "name": "cove-stream",
+  "version": "1.0.0",
+  "description": "COVE Streaming Platform Backend",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
