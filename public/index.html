@@ -468,13 +468,7 @@ nav{
       <div class="player-title" id="ptitle">—</div>
       <div class="player-subtitle" id="psubtitle"></div>
     </div>
-    <div class="source-switcher">
-      <span class="source-label">Source</span>
-      <button class="src-btn active" onclick="setSource(0)">1</button>
-      <button class="src-btn" onclick="setSource(1)">2</button>
-      <button class="src-btn" onclick="setSource(2)">3</button>
-      <button class="src-btn" onclick="setSource(3)">4</button>
-    </div>
+    <!-- Source switcher removed: only VidKing remains -->
   </div>
   <div class="player-body">
     <div class="player-stage">
@@ -626,21 +620,15 @@ let sqTimer;
 // embed sources
 function embedMovie(id,src){
   const s=[
-    `https://vidsrc.to/embed/movie/${id}`,
-    `https://www.2embed.cc/embed/${id}`,
     `https://www.vidking.net/embed/movie/${id}?autoPlay=true`,
-    `https://multiembed.mov/?video_id=${id}&tmdb=1`,
   ];
-  return s[src]||s[0];
+  return s[0];
 }
 function embedTV(id,s,e,src){
   const srcs=[
-    `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
-    `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`,
     `https://www.vidking.net/embed/tv/${id}/${s}/${e}?autoPlay=true&nextEpisode=true&episodeSelector=true`,
-    `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
   ];
-  return srcs[src]||srcs[0];
+  return srcs[0];
 }
 
 function toast(msg,ms=3000){
@@ -950,7 +938,7 @@ function closeModal(e){
 
 // ── PLAYER ──
 let loaderTimer,slowTimer;
-const SRC_NAMES=['VidSrc','2Embed','VidKing','MultiEmbed'];
+const SRC_NAMES=['VidKing'];
 
 function showLoader(srcIdx){
   const el=document.getElementById('ploading');
