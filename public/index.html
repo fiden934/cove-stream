@@ -351,7 +351,53 @@ nav{
 
 .player-body{flex:1;display:flex;overflow:hidden;min-height:0;}
 .player-stage{flex:1;position:relative;background:#000;}
-.player-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+.player-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:none;z-index:1;}
+
+/* loading overlay */
+.player-loader{
+  position:absolute;inset:0;z-index:10;
+  background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  transition:opacity 0.4s ease;
+}
+.player-loader.hide{opacity:0;pointer-events:none;}
+.loader-ring{
+  width:56px;height:56px;position:relative;
+}
+.loader-ring::before,.loader-ring::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+}
+.loader-ring::before{border:2px solid rgba(200,164,74,0.12);}
+.loader-ring::after{
+  border:2px solid transparent;
+  border-top-color:var(--gold);
+  border-right-color:var(--gold2);
+  animation:lspin 0.9s linear infinite;
+}
+@keyframes lspin{to{transform:rotate(360deg)}}
+.loader-anchor{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:20px;animation:lpulse 2s ease-in-out infinite;
+}
+@keyframes lpulse{0%,100%{opacity:0.6}50%{opacity:1}}
+.loader-text{font-size:13px;color:var(--sub);text-align:center;line-height:1.7;}
+.loader-text span{color:var(--gold);font-weight:600;}
+.loader-hint{
+  font-size:11px;color:var(--dim);text-align:center;
+  max-width:280px;line-height:1.6;
+  padding:10px 16px;border-radius:8px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  opacity:0;transition:opacity 0.5s ease;
+}
+.loader-hint.show{opacity:1;}
+.loader-try-btn{
+  padding:8px 20px;border-radius:8px;
+  background:var(--goldbg);border:1px solid var(--goldbdr);
+  color:var(--gold);font-size:12px;font-weight:600;
+  transition:all 0.15s;display:none;
+}
+.loader-try-btn:hover{background:rgba(200,164,74,0.15);}
+.loader-try-btn.show{display:block;}
 
 /* EPISODE PANEL */
 .ep-panel{
@@ -433,6 +479,14 @@ nav{
   <div class="player-body">
     <div class="player-stage">
       <iframe id="pframe" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
+      <div class="player-loader" id="ploading">
+        <div class="loader-ring">
+          <div class="loader-anchor">⚓</div>
+        </div>
+        <div class="loader-text">Loading from <span id="lsrc-name">Source 1</span>...</div>
+        <div class="loader-hint" id="lhint">Some sources take 5–10 seconds to start.<br>If it stays black, try a different source.</div>
+        <button class="loader-try-btn" id="ltry-btn" onclick="setSource((curSrc+1)%4)">Try Next Source →</button>
+      </div>
     </div>
     <div class="ep-panel hide" id="ep-panel">
       <div class="ep-panel-head">
@@ -895,15 +949,50 @@ function closeModal(e){
 }
 
 // ── PLAYER ──
+let loaderTimer,slowTimer;
+const SRC_NAMES=['VidSrc','2Embed','VidKing','MultiEmbed'];
+
+function showLoader(srcIdx){
+  const el=document.getElementById('ploading');
+  const hint=document.getElementById('lhint');
+  const tryBtn=document.getElementById('ltry-btn');
+  document.getElementById('lsrc-name').textContent=SRC_NAMES[srcIdx]||('Source '+(srcIdx+1));
+  el.classList.remove('hide');
+  hint.classList.remove('show');
+  tryBtn.classList.remove('show');
+  clearTimeout(loaderTimer);
+  clearTimeout(slowTimer);
+  // after 6s show hint
+  slowTimer=setTimeout(()=>{ hint.classList.add('show'); },6000);
+  // after 12s show try-next button
+  loaderTimer=setTimeout(()=>{ tryBtn.classList.add('show'); },12000);
+}
+
+function hideLoader(){
+  document.getElementById('ploading').classList.add('hide');
+  clearTimeout(loaderTimer);
+  clearTimeout(slowTimer);
+}
+
 function setSource(idx){
   curSrc=idx;
   document.querySelectorAll('.src-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
   if(!curItem)return;
+  showLoader(idx);
   const mt=curItem._mt||curItem.media_type||'movie';
-  document.getElementById('pframe').src=mt==='tv'
-    ?embedTV(curItem.id,curSeason,curEp,idx)
-    :embedMovie(curItem.id,idx);
+  const frame=document.getElementById('pframe');
+  frame.src='';
+  setTimeout(()=>{
+    frame.src=mt==='tv'
+      ?embedTV(curItem.id,curSeason,curEp,idx)
+      :embedMovie(curItem.id,idx);
+  },80);
 }
+
+// hide loader when iframe fires load
+document.getElementById('pframe').addEventListener('load',function(){
+  if(this.src) setTimeout(hideLoader, 800);
+});
 
 async function playItem(item,mt){
   const type=mt||item._mt||item.media_type||'movie';
@@ -915,24 +1004,26 @@ function playMovie(item){
   curItem={...item,_mt:'movie'};curSrc=0;curSeason=1;curEp=1;
   document.getElementById('ptitle').textContent=item.title||item.name;
   document.getElementById('psubtitle').textContent='';
-  document.getElementById('pframe').src=embedMovie(item.id,0);
   document.getElementById('ep-panel').classList.add('hide');
   document.querySelectorAll('.src-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
   document.getElementById('player').classList.add('on');
   document.getElementById('modal').classList.remove('on');
   document.body.style.overflow='hidden';
+  showLoader(0);
+  setTimeout(()=>{ document.getElementById('pframe').src=embedMovie(item.id,0); },80);
 }
 
 async function playTV(show,season,ep){
   curItem={...show,_mt:'tv'};curSrc=0;curSeason=season;curEp=ep;
   document.getElementById('ptitle').textContent=show.title||show.name;
   document.getElementById('psubtitle').textContent=`Season ${season} · Episode ${ep}`;
-  document.getElementById('pframe').src=embedTV(show.id,season,ep,0);
   document.getElementById('ep-panel').classList.remove('hide');
   document.querySelectorAll('.src-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
   document.getElementById('player').classList.add('on');
   document.getElementById('modal').classList.remove('on');
   document.body.style.overflow='hidden';
+  showLoader(0);
+  setTimeout(()=>{ document.getElementById('pframe').src=embedTV(show.id,season,ep,0); },80);
   await buildEpPanel(show);
 }
 
@@ -956,7 +1047,8 @@ async function buildEpPanel(show){
 
 async function changeSeason(s){
   curSeason=parseInt(s);curEp=1;
-  document.getElementById('pframe').src=embedTV(curItem.id,curSeason,1,curSrc);
+  showLoader(curSrc);
+  setTimeout(()=>{ document.getElementById('pframe').src=embedTV(curItem.id,curSeason,1,curSrc); },80);
   document.getElementById('psubtitle').textContent=`Season ${curSeason} · Episode 1`;
   await loadEpList(curItem.id,curSeason,1);
 }
@@ -982,7 +1074,8 @@ async function loadEpList(showId,season,activeEp){
         curEp=ep.episode_number;
         document.querySelectorAll('.ep-item').forEach(x=>x.classList.remove('on'));
         div.classList.add('on');
-        document.getElementById('pframe').src=embedTV(showId,season,ep.episode_number,curSrc);
+        showLoader(curSrc);
+        setTimeout(()=>{ document.getElementById('pframe').src=embedTV(showId,season,ep.episode_number,curSrc); },80);
         document.getElementById('psubtitle').textContent=`Season ${season} · Episode ${ep.episode_number}`;
       };
       scroll.appendChild(div);
@@ -994,6 +1087,8 @@ async function loadEpList(showId,season,activeEp){
 function closePlayer(){
   document.getElementById('player').classList.remove('on');
   document.getElementById('pframe').src='';
+  clearTimeout(loaderTimer);clearTimeout(slowTimer);
+  document.getElementById('ploading').classList.remove('hide');
   document.body.style.overflow='';
 }
 
